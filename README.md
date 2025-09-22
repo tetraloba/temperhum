@@ -6,5 +6,5 @@ Windows環境でのみ動作確認済み。
 
 `pip install -r requirements.txt`
 
-`python.exe pyusb.py`
+`python.exe get_temper_hum.py`
 
