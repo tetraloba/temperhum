@@ -1,7 +1,8 @@
 from logging import getLogger, StreamHandler, DEBUG, INFO, ERROR
+import time
+from platform import system
 import usb.core
 import usb.util
-import time
 
 # USBデバイスのベンダーIDとプロダクトID
 VENDOR_ID = 0x3553
@@ -32,7 +33,7 @@ def parse_data(raw_data):
     """
     if len(raw_data) < 8:
         return None, None
-    
+
     # 生の温度データは3バイト目と4バイト目
     temp_raw = raw_data[2] * 256 + raw_data[3]
     # 生の湿度データは5バイト目と6バイト目
@@ -56,13 +57,7 @@ def main():
         dev = find_temphum_device()
         logger.info("Device found.")
 
-        # 2. Windowsではカーネルドライバの切り離しは不要
-        # Linuxでは必要に応じて以下の行をコメントアウト解除
-        # if dev.is_kernel_driver_active(0):
-        #     logger.info("Detaching kernel driver.")
-        #     dev.detach_kernel_driver(0)
-
-        # 3. デバイスの設定
+        # 2. デバイスの設定
         cfg = dev.get_active_configuration()
         intf = None
         ep_out = None
@@ -83,10 +78,10 @@ def main():
                 break
         if not intf:
             raise RuntimeError("Endpoints not found on any interface.")
-        
+
         logger.info(f"Endpoints found on Interface: {intf.bInterfaceNumber}. Commencing data transfer.")
 
-        # 3. デバイスの設定 (手動)
+        # 2. デバイスの設定 (手動)
         # dev.set_configuration()
         # intf = dev[0][(1,0)]
         # ep_out = intf[1]
@@ -98,8 +93,18 @@ def main():
 
         if not ep_out or not ep_in:
             raise RuntimeError("Endpoints not found with hardcoded values.")
-        
-        logger.info("Endpoints found using hardcoded values. Commencing data transfer.")
+
+        # 3. カーネルドライバの切り離し(Windowsでは不要)
+        if system() == 'Linux':
+            logger.info("OS: Linux. Checking for kernel driver...")
+            try:
+                if dev.is_kernel_driver_active(intf.bInterfaceNumber):
+                    logger.info("Detaching kernel driver.")
+                    dev.detach_kernel_driver(intf.bInterfaceNumber)
+            except usb.core.USBError as e:
+                logger.error(f"Failed to detach kernel driver: {e}")
+        else:
+            logger.info("OS: Not Linux. Skipping kernel driver detachment.\nIf Windows, you need to install 'libusb-1.0.dll'.")
 
         # 4. モデル名・ファームウェアバージョンの取得 (必須でない)
         # パケットキャプチャから特定した「モデル名・ファームウェアバージョンを要求する」コマンド
