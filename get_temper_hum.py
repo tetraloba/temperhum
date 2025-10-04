@@ -1,5 +1,6 @@
-from logging import getLogger, StreamHandler, DEBUG, INFO, ERROR
+from logging import getLogger, FileHandler, DEBUG, INFO, WARN, ERROR
 import time
+from datetime import datetime
 from platform import system
 import usb.core
 import usb.util
@@ -14,9 +15,14 @@ REPORT_SIZE = 8
 # ログ出力設定
 logger = getLogger(__name__)
 logger.setLevel(DEBUG)
-ch = StreamHandler()
-ch.setLevel(ERROR)
+# ch = StreamHandler()
+ch = FileHandler("temperhum.err.log")
+ch.setLevel(WARN)
 logger.addHandler(ch)
+
+# 繰り返し設定
+REPEAT_NUM = 1
+REPEAT_INTERVAL = 3 # [s]
 
 def find_temphum_device():
     """
@@ -124,7 +130,7 @@ def main():
 
         # パケットキャプチャから特定した「温湿度データを要求する」コマンド
         command_for_data = [0x01, 0x80, 0x33, 0x01, 0x00, 0x00, 0x00, 0x00]
-        for _ in range(2):
+        for i in range(REPEAT_NUM):
             logger.info(f"Sending command: {hex_str(command_for_data)}")
             ep_out.write(command_for_data)
 
@@ -134,15 +140,16 @@ def main():
 
             if raw_data:
                 logger.info(f"Received raw data: {hex_str(raw_data)}")
+                timestamp = datetime.now().isoformat(timespec="seconds")
                 temperature, humidity = parse_data(raw_data)
                 if temperature is not None and humidity is not None:
-                    print(f"Temperature: {temperature}°C")
-                    print(f"Humidity: {humidity}%")
+                    print(f"{timestamp},{temperature},{humidity}")
                 else:
                     logger.error("Failed to parse data.")
             else:
                 logger.error("No data received.")
-            time.sleep(3)
+            if i < REPEAT_NUM - 1:
+                time.sleep(REPEAT_INTERVAL)
 
     except usb.core.USBError as ex:
         logger.error(f"USB Error: {ex}")
