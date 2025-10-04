@@ -14,3 +14,17 @@ python.exe get_temper_hum.py
 pip install -r requirements.txt
 python get_temper_hum.py
 ```
+基本的にはsudoが必要。  
+venvを使っている場合は`sudo .venv/bin/python get_temper_hum.py`のように実行する。  
+
+#### 一般ユーザ(非ルートユーザ)でも実行できるようにする
+(想定: 非ルートユーザでcronを使って定期実行をしたい場合など)  
+udevルールを編集して一般ユーザがTEMPerHUMにアクセスできるようにする。  
+```/etc/udev/rules.d/99-temperhum.rules
+SUBSYSTEM=="usb", ATTR{idVendor}=="3553", ATTR{idProduct}=="a001", MODE="0666", GROUP="plugdev"
+```
+```
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+```
+
